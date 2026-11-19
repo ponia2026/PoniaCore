@@ -1,0 +1,29 @@
+name: Build cores
+
+# Manual only for now. Leave "tag" empty to build without publishing.
+on:
+  workflow_dispatch:
+    inputs:
+      core:
+        description: "Core directory name under cores/ (e.g. mupen64plus_next)"
+        required: true
+      target:
+        description: "Target id (linux-x86_64, linux-arm64, linux-armhf)"
+        required: true
+        default: linux-arm64
+      tag:
+        description: "Release tag to publish to (empty = build only)"
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: sh cores/${{ inputs.core }}/build.sh ${{ inputs.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.core }}-${{ inputs.target }}
+          path: dist/*.zip
+          if-no-files-found: error

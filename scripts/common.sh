@@ -35,5 +35,7 @@ package_core() {
     mkdir -p "$OUT_DIR"
     name="PoniaCore_${core}-${date}.${commit}_${target}.zip"
     (cd "$(dirname "$lib")" && zip -j "$OUT_DIR/$name" "$(basename "$lib")")
+    # Stable alias without date/commit: this is the name PoniaEmu downloads from the cores-latest release.
+    cp "$OUT_DIR/$name" "$OUT_DIR/${core}_libretro_${target}.so.zip"
     echo "$OUT_DIR/$name"
 }

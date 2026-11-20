@@ -1,19 +1,18 @@
 #!/bin/sh
-# Build yabasanshiro for one target. Usage: build.sh <target>
-# Currently supports linux-arm64 (GLES, cross-compiled against a Debian 12 sysroot).
+# Build yabasanshiro for one target. Usage: build.sh <target>   (linux-arm64, linux-armhf)
+# GLES builds, cross-compiled with gcc 12 against a Debian 12 sysroot.
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/../../scripts/common.sh"
 . "$HERE/recipe.env"
 
 TARGET=${1:?usage: build.sh <target>}
 check_target "$TARGET"
+setup_cross "$TARGET"
 
 case "$TARGET" in
-    linux-arm64)
-        TRIPLE=aarch64-linux-gnu
-        SYSROOT=${SYSROOT:-/chroot/bookworm-arm64}
-        PLATFORM=$MAKE_PLATFORM_linux_arm64
-        ;;
+    linux-arm64) PLATFORM=$MAKE_PLATFORM_linux_arm64 ;;
+    linux-armhf) PLATFORM=$MAKE_PLATFORM_linux_armhf
+                 CROSS_CPU="-march=armv7-a -mfpu=neon -mfloat-abi=hard" ;;
     *) echo "$CORE does not support target $TARGET yet" >&2; exit 2 ;;
 esac
 
@@ -21,15 +20,12 @@ SRC=$WORK_DIR/$CORE
 fetch_source "$UPSTREAM_URL" "$UPSTREAM_REV" "$SRC"
 BUILD_DIR=$SRC/$MAKE_DIR
 
-INC="--sysroot=$SYSROOT -isystem $SYSROOT/usr/include/$TRIPLE -isystem $SYSROOT/usr/include"
-LIB="--sysroot=$SYSROOT -L$SYSROOT/lib/$TRIPLE -L$SYSROOT/usr/lib/$TRIPLE -L$SYSROOT/usr/lib/gcc/$TRIPLE/12 -Wl,-rpath-link,$SYSROOT/usr/lib/$TRIPLE:$SYSROOT/lib/$TRIPLE"
-
-make -C "$BUILD_DIR" clean >/dev/null 2>&1 || true
+clean_tree "$SRC"
 # LDFLAGS goes in through the environment so the Makefile's own "LDFLAGS +=" still applies.
-LDFLAGS="$LIB -lGLESv2 -lEGL" make -C "$BUILD_DIR" -j"$(nproc)" platform="$PLATFORM" \
-    CC="$TRIPLE-gcc $INC" CXX="$TRIPLE-g++ $INC"
+LDFLAGS="$CROSS_LIB -lGLESv2 -lEGL" make -C "$BUILD_DIR" -j"$(nproc)" platform="$PLATFORM" \
+    CC="$CROSS_CC $CROSS_CPU $CROSS_INC" CXX="$CROSS_CXX $CROSS_CPU $CROSS_INC"
 
 LIBFILE=$BUILD_DIR/${CORE}_libretro.so
 [ -f "$LIBFILE" ] || { echo "build did not produce $LIBFILE" >&2; exit 1; }
-$TRIPLE-strip --strip-unneeded "$LIBFILE"
+$CROSS_STRIP --strip-unneeded "$LIBFILE"
 package_core "$CORE" "$TARGET" "$LIBFILE"

@@ -67,3 +67,9 @@ setup_cross() {
     ln -sf "$SYSROOT/lib/$TRIPLE/libm.so.6" "$shim/libm.so"
     CROSS_LIB="--sysroot=$SYSROOT -L$shim -L$SYSROOT/usr/lib/$TRIPLE -L$SYSROOT/lib/$TRIPLE -L$SYSROOT/usr/lib/gcc/$TRIPLE/12 -Wl,-rpath-link,$SYSROOT/usr/lib/$TRIPLE:$SYSROOT/lib/$TRIPLE"
 }
+
+# Remove every build product from a source tree and its submodules, so objects of another target are never linked in.
+clean_tree() {
+    git -C "$1" clean -fdxq
+    git -C "$1" submodule foreach --recursive 'git clean -fdxq' >/dev/null
+}

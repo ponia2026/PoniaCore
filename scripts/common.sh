@@ -39,3 +39,31 @@ package_core() {
     cp "$OUT_DIR/$name" "$OUT_DIR/${core}_libretro_${target}.so.zip"
     echo "$OUT_DIR/$name"
 }
+
+# Set up a gcc 12 cross toolchain against a Debian 12 sysroot. Usage: setup_cross <target>
+# Sets TRIPLE, SYSROOT, CROSS_CC, CROSS_CXX, CROSS_STRIP and the option strings CROSS_INC (headers),
+# CROSS_LIB (library search paths) and CROSS_CPU (CPU flags). The sysroot's libm.so is a symlink with an
+# absolute target that dangles on the host, so a shim directory with the real library is searched first;
+# without it the host's newer libm is picked up and the core would need glibc 2.38.
+setup_cross() {
+    case "$1" in
+        linux-arm64)
+            TRIPLE=aarch64-linux-gnu
+            SYSROOT=${SYSROOT:-/chroot/bookworm-arm64}
+            CROSS_CPU="-march=armv8-a" ;;
+        linux-armhf)
+            TRIPLE=arm-linux-gnueabihf
+            SYSROOT=${SYSROOT:-/chroot/bookworm-armhf}
+            # ARMv7 with VFPv3-D16: the same baseline as the libretro buildbot's armv7-neon-hf cores.
+            CROSS_CPU="-march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard" ;;
+        *) echo "setup_cross: unsupported target $1" >&2; exit 2 ;;
+    esac
+    CROSS_CC=$TRIPLE-gcc-12
+    CROSS_CXX=$TRIPLE-g++-12
+    CROSS_STRIP=$TRIPLE-strip
+    CROSS_INC="--sysroot=$SYSROOT -isystem $SYSROOT/usr/include/$TRIPLE -isystem $SYSROOT/usr/include"
+    shim=$WORK_DIR/shims-$1
+    mkdir -p "$shim"
+    ln -sf "$SYSROOT/lib/$TRIPLE/libm.so.6" "$shim/libm.so"
+    CROSS_LIB="--sysroot=$SYSROOT -L$shim -L$SYSROOT/usr/lib/$TRIPLE -L$SYSROOT/lib/$TRIPLE -L$SYSROOT/usr/lib/gcc/$TRIPLE/12 -Wl,-rpath-link,$SYSROOT/usr/lib/$TRIPLE:$SYSROOT/lib/$TRIPLE"
+}

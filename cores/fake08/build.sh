@@ -33,18 +33,13 @@ case "$TARGET" in
             $SUDO chown -R "$(id -u):$(id -g)" "$SRC"
         fi
         ;;
-    linux-arm64)
-        TRIPLE=aarch64-linux-gnu
-        STRIP=$TRIPLE-strip
-        SYSROOT=${SYSROOT:-/chroot/bookworm-arm64}
-        INC="--sysroot=$SYSROOT -isystem $SYSROOT/usr/include/$TRIPLE -isystem $SYSROOT/usr/include"
-        # The sysroot's libm.so is an absolute symlink that dangles on the host; point a shim at the real library.
-        SHIM=$WORK_DIR/shims-$TARGET
-        mkdir -p "$SHIM"
-        ln -sf "$SYSROOT/lib/$TRIPLE/libm.so.6" "$SHIM/libm.so"
-        LIB="--sysroot=$SYSROOT -L$SHIM -L$SYSROOT/usr/lib/$TRIPLE -L$SYSROOT/lib/$TRIPLE -L$SYSROOT/usr/lib/gcc/$TRIPLE/12 -Wl,-rpath-link,$SYSROOT/usr/lib/$TRIPLE:$SYSROOT/lib/$TRIPLE"
+    linux-arm64|linux-armhf)
+        setup_cross "$TARGET"
+        STRIP=$CROSS_STRIP
+        INC="$CROSS_INC $CROSS_CPU"
+        LIB=$CROSS_LIB
         make -C "$BUILD_DIR" clean >/dev/null 2>&1 || true
-        make -C "$BUILD_DIR" -j"$(nproc)" platform=unix CC="$TRIPLE-gcc-12 $INC" CXX="$TRIPLE-g++-12 $INC" LDFLAGS="$LIB"
+        make -C "$BUILD_DIR" -j"$(nproc)" platform=unix CC="$CROSS_CC $INC" CXX="$CROSS_CXX $INC" LDFLAGS="$LIB"
         ;;
     *) echo "$CORE does not support target $TARGET yet" >&2; exit 2 ;;
 esac

@@ -25,13 +25,14 @@ mkdir -p "$SHIM"
 ln -sf "$SYSROOT/lib/$TRIPLE/libm.so.6" "$SHIM/libm.so"
 
 BUILD=$WORK_DIR/$CORE-build-$TARGET
+# USE_SYSTEM_MBEDTLS=OFF: link the bundled mbedTLS, because the sonames of the system one differ between Debian releases.
 # The sysroot glibc (2.36) has no strlcpy, but the feature check can pick it up from the newer host glibc,
 # which would raise the core's glibc requirement to 2.38. Force it off.
 cmake -S "$SRC" -B "$BUILD" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DPONIA_SYSROOT="$SYSROOT" -DPONIA_LIB_SHIM="$SHIM" \
     -DLIBRETRO=ON -DENABLE_X11=OFF -DENABLE_EGL=ON -DENABLE_VULKAN=OFF \
-    -DHAVE_STRLCPY=0 -DENABLE_QT=OFF
+    -DHAVE_STRLCPY=0 -DENABLE_QT=OFF -DUSE_SYSTEM_MBEDTLS=OFF
 cmake --build "$BUILD" --target dolphin_libretro -j"$(nproc)"
 
 LIBFILE=$BUILD/${CORE}_libretro.so
